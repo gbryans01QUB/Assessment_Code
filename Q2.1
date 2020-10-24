@@ -1,0 +1,142 @@
+# Question 2 part 1
+
+import numpy as np
+from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
+
+
+class Car:
+
+    def __init__(self,
+                 length=2.3,
+                 velocity=5,
+                 x=0, y=0, pose=0):
+        self.__length = length
+        self.__velocity = velocity
+        self.__x = x
+        self.__y = y
+        self.__pose = pose
+
+    def move(self, steering_angle, dt):
+        # This method computes the position and orientation (pose)
+        # of the car after time `dt` starting from its current
+        # position and orientation by solving an IVP
+
+        def bicycle_model(_t, z):
+            x = z[0]
+            y = z[1]
+            theta = z[2]
+            return [self.__velocity * np.cos(theta),
+                    self.__velocity * np.sin(theta),
+                    self.__velocity * np.tan(steering_angle + 0.01745) # offset added = 0.01745 radians
+                    / self.__length]
+        z_initial = [self.__x, self.__y, self.__pose]
+        sol = solve_ivp(bicycle_model,
+                        [0, dt],
+                        z_initial)
+
+        self.__x = sol.y[0] [-1]
+        self.__y = sol.y[1] [-1]
+        self.__pose = sol.y[2] [-1]
+
+    def x(self):
+        return self.__x
+
+    def y(self):
+        return self.__y
+
+    def pose(self):
+        return self.__pose
+
+    def velocity(self):
+        return self.__velocity
+
+
+murphy = Car()
+murphy.move(0.01, 0.005)
+print(murphy.x())
+
+# double underscore hides the value
+
+class PidController:
+    # Kp = proportional gain
+    # Kd = derivative gain
+    # Ki = integral gain
+    # ts = sampling time
+
+    def __init__(self, kp, ki, kd, ts):
+        """Constructor for PidController
+
+        :param kp: proportional gain
+        :param ki: integral gain
+        :param kd: derivative gain
+        :param ts: sampling time
+        """
+        self.__kp = kp
+        self.__kd = kd / ts  # discrete-time Kd
+        self.__ki = ki * ts
+        self.__previous_error = None
+        self.__error_sum = 0.
+
+    def control(self, y, set_point=0.):
+        """Documentation goes here
+
+        :param y:
+        :param set_point:
+        :return:
+        """
+        error = set_point - y  # compute the control error
+        steering_action = self.__kp * error  # P controller
+
+
+        return steering_action
+
+t_sampling = 0.025      # for sampling rate of 40Hz, sampling time must be 0.025s
+
+# Different values of kp implemented for the plot of the x-y trajectories of different caches to 
+# compare how kp affects the closed-loop behavior
+
+pid = PidController (kp=0.1, kd=0.0, ki=0.0, ts=t_sampling)
+murphy = Car(x=0, y=0.1, pose=0)
+pid2 = PidController (kp=0.3, kd=0.0, ki=0.0, ts=t_sampling)
+murphy2 = Car(x=0, y=0.1, pose=0)
+pid3 = PidController (kp=0.8, kd=0.0, ki=0.0, ts=t_sampling)
+murphy3 = Car(x=0, y=0.1, pose=0)
+
+# different caches need to be made for the different values of kp for Murphy
+
+y_cache = np.array([murphy.y()])
+y_cache2 = np.array([murphy2.y()])
+y_cache3 = np.array([murphy3.y()])
+
+x_cache = np.array([murphy.x()])
+x_cache2 = np.array([murphy2.x()])
+x_cache3 = np.array([murphy3.x()])
+
+
+for k in range(2000):
+    steering_action = pid.control(y=murphy.y())
+    murphy.move(steering_action, t_sampling) 
+    y_cache = np.append(y_cache, murphy.y())
+    x_cache = np.append(x_cache, murphy.x())
+
+    steering_action = pid2.control(y=murphy2.y())
+    murphy2.move(steering_action, t_sampling)
+    y_cache2 = np.append(y_cache2, murphy2.y())
+    x_cache2 = np.append(x_cache2, murphy2.x())
+
+    steering_action = pid3.control(y=murphy3.y())
+    murphy3.move(steering_action, t_sampling)
+    y_cache3 = np.append(y_cache3, murphy3.y())
+    x_cache3 = np.append(x_cache3, murphy3.x())
+
+
+
+t_span = t_sampling * np.arange(2000 + 1)	# time span = 0.025 x 2000 = 50, which is upper limit of our time scale
+plt.plot(x_cache, y_cache, 'r')
+plt.plot(x_cache2, y_cache2, 'b')
+plt.plot(x_cache3, y_cache3, 'g')
+plt.xlabel("x traj")
+plt.ylabel("y traj")
+plt.grid()
+plt.show() 	# shows all the plots only once so that they are on the same axis
