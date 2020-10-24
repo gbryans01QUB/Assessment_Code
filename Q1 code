@@ -1,0 +1,39 @@
+# QUESTION 1
+
+from scipy.integrate import solve_ivp
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+v = 5
+L = 2.3
+u = 2 * np.pi / 180 # 2 degrees converted to radians
+# Define the system dynamics of the function in the form f(t, z)
+def dynamics_2(t, z):
+    theta = z[2]
+    return [v * np.cos(theta),
+            v * np.sin(theta),
+            v * np.tan(u) / L]
+
+t_final = 2
+z_init = [0, 0.3, 5 * np.pi / 180]
+# z(0) = [x(0), y(0), theta(0)]
+num_points = 100
+
+# simulating system
+sol = solve_ivp(dynamics_2,
+                [0, t_final],
+                z_init,
+                t_eval=np.linspace(0, t_final, 1000)) #[0....10] length of array will be 1000
+                                                    # t_eval is resolution
+
+times = sol.t
+x_trajectory = sol.y[0]
+y_trajectory = sol.y[1]
+theta_trajectory = sol.y[2]
+
+plt.plot(times, x_trajectory) 	# change to y_trajectory and theta_trajectory for respective graphs
+plt.xlabel(" time")
+plt.ylabel(" # insert y label here ") # will be either 'x trajectory', 'y trajectory', or 'theta trajectory'
+plt.grid()
+plt.show()
