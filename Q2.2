@@ -1,0 +1,152 @@
+# Question 2.2
+
+import numpy as np
+from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
+
+
+class Car:
+
+    def __init__(self,
+                 length=2.3,
+                 velocity=5,
+                 x=0, y=0, pose=0):
+        self.__length = length
+        self.__velocity = velocity
+        self.__x = x
+        self.__y = y
+        self.__pose = pose
+
+    def move(self, steering_angle, dt):
+        # This method computes the position and orientation (pose)
+        # of the car after time `dt` starting from its current
+        # position and orientation by solving an IVP
+
+        def bicycle_model(_t, z):
+            x = z[0]
+            y = z[1]
+            theta = z[2]
+            return [self.__velocity * np.cos(theta),
+                    self.__velocity * np.sin(theta),
+                    self.__velocity * np.tan(steering_angle + 0.01745)
+                    / self.__length]
+        z_initial = [self.__x, self.__y, self.__pose]
+        sol = solve_ivp(bicycle_model,
+                        [0, dt],
+                        z_initial)
+
+        self.__x = sol.y[0] [-1]
+        self.__y = sol.y[1] [-1]
+        self.__pose = sol.y[2] [-1]
+
+    def x(self):
+        return self.__x
+
+    def y(self):
+        return self.__y
+
+    def pose(self):
+        return self.__pose
+
+    def velocity(self):
+        return self.__velocity
+
+
+murphy = Car()
+murphy.move(0.01, 0.005)
+print(murphy.x())
+
+# double underscore hides the value
+
+class PidController:
+    # Kp = proportional gain
+    # Kd = derivative gain
+    # Ki = integral gain
+    # ts = sampling time
+
+    def __init__(self, kp, ki, kd, ts):
+        """Constructor for PidController
+
+        :param kp: proportional gain
+        :param ki: integral gain
+        :param kd: derivative gain
+        :param ts: sampling time
+        """
+        self.__kp = kp
+        self.__kd = kd / ts  # discrete-time Kd
+        self.__ki = ki * ts
+        self.__previous_error = None # not defined yet
+        self.__error_sum = 0.
+
+    def control(self, y, set_point=0.):
+        """Documentation goes here
+
+        :param y:
+        :param set_point:
+        :return:
+        """
+        error = set_point - y  # compute the control error
+        steering_action = self.__kp * error  # P controller
+
+
+
+        # D component
+        if self.__previous_error is not None:
+            error_diff = error - self.__previous_error  # computes error difference for D component
+            steering_action += self.__kd * error_diff   # updates steering action
+
+
+        self.__previous_error = error  # means that next time we need the previous error
+
+        return steering_action
+
+t_sampling = 0.025      # for sampling rate of 40Hz, sampling time must 1/40 = 0.025s
+
+# values of kp, kd and ki will be changed for the different pid controllers to produce a plot of the y and x
+# trajectories of the different values to find the most efficient parameters that makes the curves produced
+# converge quickly with few oscillations to the point y =0, which is the lane Murphy should be kept in
+
+pid = PidController (kp=0.4, kd=0.1, ki=0.0, ts=t_sampling)
+murphy = Car(x=0, y=0.1, pose=0)
+pid2 = PidController (kp=0.4, kd=0.2, ki=0.0, ts=t_sampling)
+murphy2 = Car(x=0, y=0.1, pose=0)
+pid3 = PidController (kp=0.4, kd=0.5, ki=0.0, ts=t_sampling)
+murphy3 = Car(x=0, y=0.1, pose=0)
+
+# need to produce different y and x caches the different parameter for Murphy listed above
+y_cache = np.array([murphy.y()])
+y_cache2 = np.array([murphy2.y()])
+y_cache3 = np.array([murphy3.y()])
+
+x_cache = np.array([murphy.x()])
+x_cache2 = np.array([murphy2.x()])
+x_cache3 = np.array([murphy3.x()])
+
+
+for k in range(2000):
+    steering_action = pid.control(y=murphy.y())
+    murphy.move(steering_action, t_sampling)
+    y_cache = np.append(y_cache, murphy.y())
+    x_cache = np.append(x_cache, murphy.x())
+
+    steering_action = pid2.control(y=murphy2.y())
+    murphy2.move(steering_action, t_sampling)
+    y_cache2 = np.append(y_cache2, murphy2.y())
+    x_cache2 = np.append(x_cache2, murphy2.x())
+
+    steering_action = pid3.control(y=murphy3.y())
+    murphy3.move(steering_action, t_sampling)
+    y_cache3 = np.append(y_cache3, murphy3.y())
+    x_cache3 = np.append(x_cache3, murphy3.x())
+
+
+
+t_span = t_sampling * np.arange(2000 + 1)   # time span will be 0.025 x 2000 to get 50s, which is the upper limit
+                                            #  of time in the question
+plt.plot(x_cache, y_cache, 'r')     # plot of first x-y trajectories will be red
+plt.plot(x_cache2, y_cache2, 'b')   # plot of second x-y trajectories will be blue
+plt.plot(x_cache3, y_cache3, 'g')   # plot of third x-y trajectories will be green
+plt.xlabel("x traj")
+plt.ylabel("y traj")
+plt.grid()
+plt.show()
